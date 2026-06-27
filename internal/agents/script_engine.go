@@ -147,10 +147,11 @@ func (a *ScriptEngine) genCharacters(ctx context.Context, p models.Project, o mo
 	user := fmt.Sprintf(`[[TASK:characters]]
 基于以下故事设定 2-3 个主要角色。
 IDEA: %s
+GENRE: %s
 剧名: %s
 梗概: %s
 输出 JSON 数组，每个元素字段：id(英文小写下划线,如 char_lead), name(中文名), persona(性格背景), appearance(外貌描述,用于生成形象参考图)。`,
-		p.Idea, o.Title, o.Synopsis)
+		p.Idea, p.Genre, o.Title, o.Synopsis)
 
 	raw, err := a.llm.Complete(ctx, system, user)
 	if err != nil {
@@ -196,11 +197,12 @@ func (a *ScriptEngine) genShots(ctx context.Context, p models.Project, o models.
 	user := fmt.Sprintf(`[[TASK:shots]]
 基于以下故事与角色，编写 4-6 个镜头的分镜脚本，覆盖完整起承转合。
 IDEA: %s
+GENRE: %s
 剧名: %s
 节拍: %v
 可用角色(只能引用这些 char_id): %s
 输出 JSON 数组，每个镜头字段：scene_heading(场景标题), location(地点), time_of_day(时间), char_id(出镜主角,必须是上面列出的), shot_type(景别:远景/全景/中景/近景/特写), camera(运镜:推/拉/摇/移/固定), keyframe_prompt(画面描述), dialogue(该镜头对白)。`,
-		p.Idea, o.Title, o.Beats, charList)
+		p.Idea, p.Genre, o.Title, o.Beats, charList)
 
 	raw, err := a.llm.Complete(ctx, system, user)
 	if err != nil {
