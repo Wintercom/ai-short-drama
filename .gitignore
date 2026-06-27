@@ -1,0 +1,22 @@
+# 运行时产物
+/workspace/
+*.mp4
+*.aiff
+*.wav
+*.png
+
+# 环境与密钥
+.env
+
+# Go
+/bin/
+*.test
+*.out
+
+# 编辑器
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code 本地配置（含本地权限设置，不入库）
+.claude/
