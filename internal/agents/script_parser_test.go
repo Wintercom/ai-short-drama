@@ -98,3 +98,36 @@ func TestParseScreenplayEmpty(t *testing.T) {
 		t.Error("无镜头剧本应返回错误，却未报错")
 	}
 }
+
+// TestParseScreenplayEnglishHeaders 验证：英文区块标题（大小写不敏感）也能识别。
+func TestParseScreenplayEnglishHeaders(t *testing.T) {
+	script := `# Title: Test
+
+## Characters
+- Alice | brave | short hair
+
+## Shots
+### Shot 1
+location: cafe
+camera: 推
+role: Alice
+line: Hello world.`
+
+	ps, err := parseScreenplay(script)
+	if err != nil {
+		t.Fatalf("英文标题解析失败: %v", err)
+	}
+	if len(ps.characters) != 1 || ps.characters[0].Name != "Alice" {
+		t.Errorf("英文「## Characters」未识别：%+v", ps.characters)
+	}
+	if len(ps.shots) != 1 {
+		t.Fatalf("英文「## Shots」未识别，镜头数=%d", len(ps.shots))
+	}
+	if ps.shots[0].Location != "cafe" || ps.shots[0].Dialogue != "Hello world." {
+		t.Errorf("英文字段解析错误：%+v", ps.shots[0])
+	}
+	// 角色引用（role: Alice）应译为已声明角色的 ID
+	if ps.shots[0].CharID != ps.characters[0].ID {
+		t.Errorf("英文角色引用未关联：%q vs %q", ps.shots[0].CharID, ps.characters[0].ID)
+	}
+}

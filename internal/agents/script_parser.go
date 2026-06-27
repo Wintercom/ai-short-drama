@@ -14,7 +14,9 @@ import (
 // 解析结果（Outline + Characters + shotDTO）与 AI 生成路径完全同构，
 // 因此下游分镜/配音/合成流程无需任何改动。
 //
-// 剧本格式（中文/半角标点均可，键值用「键：值」）：
+// 剧本格式（中英文标题与字段名均可，全/半角标点均可，键值用「键：值」）：
+//   - 区块标题：## 角色 / ## 分镜（亦支持 ## Characters / ## Shots）
+//   - 字段名同时支持中英文别名（如 场景/scene、台词/line）
 //
 //	# 标题：重拾画笔
 //	# 题材：治愈
@@ -110,7 +112,7 @@ func parseScreenplay(text string) (parsedScript, error) {
 	resolveCharacters(&ps, nameToID)
 
 	if len(ps.shots) == 0 {
-		return ps, fmt.Errorf("剧本中未解析到任何镜头（请在「## 分镜」下用「### 镜头」分隔）")
+		return ps, fmt.Errorf("剧本中未解析到任何镜头（请在「## 分镜 / ## Shots」下用「### 镜头 / ### Shot」分隔）")
 	}
 	if ps.outline.Title == "" {
 		ps.outline.Title = "无题短剧"
@@ -128,19 +130,32 @@ func isComment(line string) bool {
 	return strings.HasPrefix(line, "//")
 }
 
-// sectionHeader 识别区块标题（## 角色 / ## 分镜）。
+// sectionHeader 识别区块标题（## 角色 / ## 分镜），中英文标题均可。
 func sectionHeader(line string) (section, bool) {
 	if !strings.HasPrefix(line, "##") || strings.HasPrefix(line, "###") {
 		return 0, false
 	}
 	title := strings.TrimSpace(strings.TrimLeft(line, "#"))
+	lower := strings.ToLower(title) // 英文标题大小写不敏感
 	switch {
-	case strings.Contains(title, "角色"), strings.Contains(title, "人物"):
+	case containsAny(title, "角色", "人物"),
+		containsAny(lower, "character", "cast", "role"):
 		return secCharacters, true
-	case strings.Contains(title, "分镜"), strings.Contains(title, "镜头"), strings.Contains(title, "脚本"):
+	case containsAny(title, "分镜", "镜头", "脚本"),
+		containsAny(lower, "shot", "storyboard", "scene", "script"):
 		return secShots, true
 	}
 	return 0, false
+}
+
+// containsAny 判断 s 是否包含任一子串。
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 // applyMeta 解析元信息行（# 标题：xxx 或 标题：xxx）。

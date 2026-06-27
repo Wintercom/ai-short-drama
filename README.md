@@ -64,6 +64,8 @@ cat examples/screenplay.txt | ./bin/drama -script -   # 也支持 stdin 管道
 台词：又是凌晨两点……这真的是我想要的生活吗？
 ```
 
+> 格式说明：区块标题（`## 角色` / `## 分镜`）与字段名（`场景`/`台词`…）均支持中英文别名（如 `## Characters` / `## Shots`、`scene` / `line`），全/半角标点皆可；唯一硬性要求是至少一个 `### 镜头`。完整规则见 `internal/agents/script_parser.go` 顶部注释。
+
 运行示例输出：
 
 ```
