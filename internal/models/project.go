@@ -6,10 +6,19 @@
 // 从根本上消灭"流程割裂"。
 package models
 
-// Project 是一次创作任务的元信息（用户创意输入）。
+// Project 是一次创作任务的元信息。
+//
+// 支持两种创作入口（二选一）：
+//   - 创意模式：仅给 Idea，由剧本引擎用 LLM 分层生成剧本；
+//   - 剧本模式：给定 ScriptInput（完整文本剧本），由剧本引擎离线解析为分镜。
+//
+// 两种入口都汇入同一份 ProjectState 黑板，下游分镜/配音/合成流程完全一致——
+// 这正是"文本→视频"闭环不中断的体现。
 type Project struct {
 	ID       string `json:"id"`       // 唯一项目号，同时作为 workspace 子目录名
-	Idea     string `json:"idea"`     // 用户原始创意/主题
+	Source   string `json:"source"`   // 创作入口：idea（创意）| script（文本剧本）
+	Idea     string `json:"idea"`     // 用户原始创意/主题（创意模式）
+	Script   string `json:"script"`   // 文本剧本原文（剧本模式）
 	Genre    string `json:"genre"`    // 题材，如 都市/悬疑/古风
 	Style    string `json:"style"`    // 视觉风格，如 写实/动漫/赛博朋克
 	Episodes int    `json:"episodes"` // 集数（基础闭环固定为 1）

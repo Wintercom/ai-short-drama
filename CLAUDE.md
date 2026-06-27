@@ -16,7 +16,11 @@
 # 构建
 go build -o bin/drama ./cmd/drama
 
-# 运行（零配置即可跑通闭环：离线 LLM + ffmpeg + macOS say）
+# 入口一：文本剧本 → 视频（基础闭环，离线零成本，不经 LLM）
+./bin/drama -script examples/screenplay.txt
+cat examples/screenplay.txt | ./bin/drama -script -   # 也支持 stdin
+
+# 入口二：创意 → AI 生成剧本 → 视频
 ./bin/drama -idea "一个程序员重拾儿时画家梦想的故事" -genre 治愈
 
 # 断点续跑（跳过已完成节点，不重复烧算力）
@@ -31,6 +35,18 @@ gofmt -w . && go vet ./...
 ```
 
 成片输出在 `workspace/{project_id}/final/output.mp4`，过程产物（角色图、关键帧、片段、配音）同目录留存。
+
+**文本剧本格式**（`examples/screenplay.txt` 为完整样例，离线确定性解析，见 `agents/script_parser.go`）：
+
+```
+# 标题：重拾画笔        # 元信息：标题/题材/主题/梗概/节拍
+## 角色
+- 林夏 | 性格设定 | 外貌描述
+## 分镜
+### 镜头一
+场景：办公室-夜-内    角色：林夏    景别：全景    运镜：推
+画面：画面描述        台词：对白
+```
 
 ## 环境依赖
 
@@ -65,7 +81,7 @@ gofmt -w . && go vet ./...
 
 系统采用**多智能体协作 + 黑板模式**，五大智能体按流水线协作：
 
-1. **剧本引擎**（`script_engine.go`）— 分层递进生成：大纲 → 角色 → 分镜脚本
+1. **剧本引擎**（`script_engine.go`）— 双入口：①文本剧本离线解析（`script_parser.go`）；②创意分层递进生成（大纲→角色→分镜）。二者产出同构，汇入同一黑板
 2. **资产/角色管理**（`asset_manager.go`）— 锁定角色一致性三要素（参考图 + seed + 音色）
 3. **视觉分镜**（`storyboard.go`）— 并发生成关键帧（T2I）与运镜片段（I2V）
 4. **音频合成**（`audio_synth.go`）— 按角色锁定音色并发配音（TTS）

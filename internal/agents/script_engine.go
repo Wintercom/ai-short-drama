@@ -12,12 +12,14 @@ import (
 
 // ScriptEngine 是创意剧本引擎（流水线第一个智能体）。
 //
-// 采用"分层递进"生成，逐级约束、层层细化——这是长篇叙事不断裂的关键：
+// 支持两种入口，二者产出同构、汇入同一黑板，下游流程完全一致：
 //
-//	大纲(Outline) → 角色(Characters) → 分镜脚本(Shots)
+//   - 剧本模式（Project.Source=="script"）：把用户提供的"文本剧本"离线解析为分镜。
+//     纯规则解析、不依赖 LLM，保证"文本→视频"主链零成本、可离线、不中断。
+//   - 创意模式（默认）：用 LLM "分层递进"生成剧本，逐级约束、层层细化：
+//     大纲(Outline) → 角色(Characters) → 分镜脚本(Shots)。
 //
-// 上层产物作为下层生成的上下文注入，保证全局一致：角色基于大纲设定，
-// 分镜基于大纲+角色展开。每一层都写回 ProjectState 黑板。
+// 无论哪种入口，每一层都写回 ProjectState 黑板。
 type ScriptEngine struct {
 	cfg *config.Config
 	llm services.LLM
@@ -31,8 +33,45 @@ func NewScriptEngine(cfg *config.Config, llm services.LLM) *ScriptEngine {
 // Name 节点名。
 func (a *ScriptEngine) Name() string { return "script_engine" }
 
-// Run 执行三层递进生成。
+// Run 按入口分发：剧本模式走离线解析，创意模式走 AI 分层生成。
 func (a *ScriptEngine) Run(ctx context.Context, st *models.ProjectState) error {
+	if st.Project.Source == "script" {
+		return a.runFromScript(ctx, st)
+	}
+	return a.runFromIdea(ctx, st)
+}
+
+// runFromScript 解析用户提供的文本剧本（"文本→视频"入口）。
+func (a *ScriptEngine) runFromScript(ctx context.Context, st *models.ProjectState) error {
+	logx.Stage("📝", "剧本引擎：解析文本剧本")
+
+	// 已解析过则跳过（断点续跑）。
+	if len(st.Shots) > 0 {
+		logx.Step("剧本已解析，跳过")
+		return nil
+	}
+
+	ps, err := parseScreenplay(st.Project.Script)
+	if err != nil {
+		return fmt.Errorf("解析文本剧本失败: %w", err)
+	}
+
+	st.Outline = ps.outline
+	st.Characters = ps.characters
+	scenes, shots := assembleScenes(ps.shots, ps.characters)
+	st.Scenes = scenes
+	st.Shots = shots
+
+	logx.Done("剧本解析完成：《%s》", st.Outline.Title)
+	logx.Step("角色 %d 位 / 场景 %d 场 / 镜头 %d 镜", len(st.Characters), len(scenes), len(shots))
+	for _, c := range st.Characters {
+		logx.Step("%s（%s）", c.Name, c.ID)
+	}
+	return nil
+}
+
+// runFromIdea 执行三层递进生成（创意 → 剧本）。
+func (a *ScriptEngine) runFromIdea(ctx context.Context, st *models.ProjectState) error {
 	logx.Stage("📝", "剧本引擎：分层递进生成剧本")
 
 	// —— 第 1 层：大纲 ——
@@ -108,10 +147,11 @@ func (a *ScriptEngine) genCharacters(ctx context.Context, p models.Project, o mo
 	user := fmt.Sprintf(`[[TASK:characters]]
 基于以下故事设定 2-3 个主要角色。
 IDEA: %s
+GENRE: %s
 剧名: %s
 梗概: %s
 输出 JSON 数组，每个元素字段：id(英文小写下划线,如 char_lead), name(中文名), persona(性格背景), appearance(外貌描述,用于生成形象参考图)。`,
-		p.Idea, o.Title, o.Synopsis)
+		p.Idea, p.Genre, o.Title, o.Synopsis)
 
 	raw, err := a.llm.Complete(ctx, system, user)
 	if err != nil {
@@ -157,11 +197,12 @@ func (a *ScriptEngine) genShots(ctx context.Context, p models.Project, o models.
 	user := fmt.Sprintf(`[[TASK:shots]]
 基于以下故事与角色，编写 4-6 个镜头的分镜脚本，覆盖完整起承转合。
 IDEA: %s
+GENRE: %s
 剧名: %s
 节拍: %v
 可用角色(只能引用这些 char_id): %s
 输出 JSON 数组，每个镜头字段：scene_heading(场景标题), location(地点), time_of_day(时间), char_id(出镜主角,必须是上面列出的), shot_type(景别:远景/全景/中景/近景/特写), camera(运镜:推/拉/摇/移/固定), keyframe_prompt(画面描述), dialogue(该镜头对白)。`,
-		p.Idea, o.Title, o.Beats, charList)
+		p.Idea, p.Genre, o.Title, o.Beats, charList)
 
 	raw, err := a.llm.Complete(ctx, system, user)
 	if err != nil {

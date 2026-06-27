@@ -6,6 +6,7 @@
 
 ## ✨ 特性
 
+- **两种创作入口**：①直接输入**文本剧本**（`-script`，离线解析、零成本、不经 LLM，对齐"流程不中断"）；②一句**创意**由 AI 生成剧本（`-idea`）。二者产出同构，下游流程完全一致。
 - **零配置跑通闭环**：默认用离线 LLM + ffmpeg + macOS 系统语音，**无需任何 API key、零成本**即可产出真实 mp4。
 - **多智能体黑板协作**：五大智能体通过统一的 `ProjectState` 共享状态协作，流程不割裂。
 - **角色一致性**：角色注册表锁定（参考图 + 种子 + 音色），同一角色跨镜头长相/画风/声音统一。
@@ -30,11 +31,40 @@ brew install go ffmpeg
 # 构建
 go build -o bin/drama ./cmd/drama
 
-# 一句创意，生成短剧
+# 入口一：文本剧本 → 视频（基础闭环，离线零成本）
+./bin/drama -script examples/screenplay.txt
+cat examples/screenplay.txt | ./bin/drama -script -   # 也支持 stdin 管道
+
+# 入口二：一句创意 → AI 生成剧本 → 视频
 ./bin/drama -idea "一个程序员重拾儿时画家梦想的故事" -genre 治愈
 
 # 成片输出在 workspace/{project_id}/final/output.mp4
 ```
+
+### 文本剧本格式
+
+完整样例见 [examples/screenplay.txt](examples/screenplay.txt)，离线确定性解析，无需 LLM：
+
+```
+# 标题：重拾画笔
+# 题材：治愈
+# 主题：勇气与自我和解
+
+## 角色
+- 林夏 | 坚韧而敏感的程序员，怀揣画家梦 | 二十多岁，短发，风衣
+- 陈默 | 沉稳的画室老师 | 三十多岁，眼镜，深色大衣
+
+## 分镜
+### 镜头一
+场景：办公室-夜-内
+角色：林夏
+景别：全景
+运镜：推
+画面：深夜空荡的办公室，只剩林夏一人对着屏幕
+台词：又是凌晨两点……这真的是我想要的生活吗？
+```
+
+> 格式说明：区块标题（`## 角色` / `## 分镜`）与字段名（`场景`/`台词`…）均支持中英文别名（如 `## Characters` / `## Shots`、`scene` / `line`），全/半角标点皆可；唯一硬性要求是至少一个 `### 镜头`。完整规则见 `internal/agents/script_parser.go` 顶部注释。
 
 运行示例输出：
 
