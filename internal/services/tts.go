@@ -44,14 +44,16 @@ func (t *SayTTS) Speak(ctx context.Context, text, voiceID, outPath string) error
 		return fmt.Errorf("say 合成失败: %w\n%s", err, tail(string(out), 300))
 	}
 
-	// 2) ffmpeg 转 AAC；男声（pitch<1）施加降调变声滤镜。
+	// 2) ffmpeg 转 AAC，统一输出采样率，避免与其他片段拼接时丢音。
+	//    男声（pitch<1）施加降调变声：asetrate 基于源采样率降调，atempo 补回语速，
+	//    最终 aresample 到统一目标采样率（与女声一致，否则 concat 会丢音）。
 	convArgs := []string{"-y", "-hide_banner", "-loglevel", "error", "-i", aiff}
 	if v.pitch > 0 && v.pitch < 1.0 {
-		// asetrate 降调使音色低沉（男声），atempo 补回时长保持语速不变。
-		af := fmt.Sprintf("asetrate=44100*%.3f,aresample=44100,atempo=%.3f", v.pitch, 1.0/v.pitch)
+		af := fmt.Sprintf("asetrate=%d*%.3f,atempo=%.3f,aresample=%d",
+			ttsSampleRate, v.pitch, 1.0/v.pitch, ttsSampleRate)
 		convArgs = append(convArgs, "-af", af)
 	}
-	convArgs = append(convArgs, "-c:a", "aac", outPath)
+	convArgs = append(convArgs, "-ar", fmt.Sprint(ttsSampleRate), "-c:a", "aac", outPath)
 	conv := exec.CommandContext(ctx, t.FFmpeg, convArgs...)
 	if out, err := conv.CombinedOutput(); err != nil {
 		return fmt.Errorf("配音转码失败: %w\n%s", err, tail(string(out), 300))

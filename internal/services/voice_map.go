@@ -5,6 +5,11 @@ package services
 // 角色注册表只分配逻辑音色（male-N/female-N），各 TTS 引擎在此把逻辑音色
 // 翻译成自己的具体声音。这层间接让"换引擎不动角色档案、男女声统一抽象"成立。
 
+// ttsSampleRate 是所有配音统一的输出采样率（Hz）。
+// macOS say 原生输出 22050Hz，故以此为准；男声变调后也重采样回这个值，
+// 保证所有镜头音频采样率一致——否则 concat demuxer 拼接时会丢掉采样率不同的片段。
+const ttsSampleRate = 22050
+
 // sayVoice 描述 macOS say 的一个声音及其男声变调参数。
 type sayVoice struct {
 	system string  // 系统语音名（say -v）

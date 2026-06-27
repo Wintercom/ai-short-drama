@@ -73,6 +73,8 @@ func (e *FFmpegEditor) Concat(ctx context.Context, clips []string, outPath strin
 		"-c:v", "libx264",
 		"-pix_fmt", "yuv420p",
 		"-c:a", "aac",
+		"-ar", "44100", // 强制统一音频采样率，兼容变调男声/edge 等不同来源，防拼接丢音
+		"-ac", "2", // 强制统一声道，进一步保证拼接稳定
 		"-r", strconv.Itoa(e.FPS),
 		outPath,
 	)
