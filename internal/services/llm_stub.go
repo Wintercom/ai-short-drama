@@ -58,12 +58,14 @@ func stubCharacters(tpl genreTemplate) string {
 			"name":       tpl.lead.name,
 			"persona":    tpl.lead.persona,
 			"appearance": tpl.lead.appearance,
+			"gender":     tpl.lead.gender,
 		},
 		{
 			"id":         "char_support",
 			"name":       tpl.support.name,
 			"persona":    tpl.support.persona,
 			"appearance": tpl.support.appearance,
+			"gender":     tpl.support.gender,
 		},
 	}
 	b, _ := json.Marshal(chars)

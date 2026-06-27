@@ -1,5 +1,6 @@
 # 运行时产物
 /workspace/
+workspace/
 *.mp4
 *.aiff
 *.wav
