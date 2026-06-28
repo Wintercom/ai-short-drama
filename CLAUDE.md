@@ -55,6 +55,7 @@ gofmt -w . && go vet ./...
 - **macOS `say`**（可选）：系统语音配音（女声原声 + 男声变调），缺失时自动降级为静音轨
 - **edge-tts**（可选）：`TTS_PROVIDER=edge` 启用微软在线真人男/女声，首次自动 pip 安装；内置串行+重试防限速，失败自动降级到本地 say，流程不中断
 - **Pollinations AI**（可选）：`T2I_PROVIDER=pollinations` 启用免费在线文生图（真人级人物图，无需 Key）；内置串行+重试防限速（免费层并发会 429），失败自动降级到本地 SVG
+- **通义千问图像编辑 T2I**（可选）：`T2I_PROVIDER=wanedit` + `T2I_API_KEY` 启用参考图驱动的图生图（`qwen-image-edit-plus`）——角色锚点图作参考，每镜「图生图」保持人物，实现**跨镜头同一张脸**（一致性最强）；缺 Key 自动降级 Pollinations
 - **通义万相 I2V**（可选）：`I2V_PROVIDER=wan` + `I2V_API_KEY` 启用阿里云百炼图生视频（真人级人物动作，关键帧作首帧锚点保角色一致）；异步任务+轮询，失败/缺 Key 自动降级到本地 ffmpeg 运镜
 - **LLM**（可选）：默认用内置离线 Stub（零成本）；配置 `LLM_API_KEY` 可切 DeepSeek/Ollama 等 OpenAI 兼容端点。配置项见 `.env.example`
 
@@ -149,5 +150,6 @@ gofmt -w . && go vet ./...
 - **接入第三方多媒体模型前先探活 API**：通义万相 `wan2.2-i2v-plus` 仅支持 `480P/1080P`，不支持 `720P`（凭直觉按项目 720p 写死会被静默拒绝）。各家模型的 resolution/duration 等参数是离散枚举，接入前应先用 curl 探测真实端点（创建任务→轮询读 `message`），把可选档位做成配置项而非写死。
 - **降级机制要能暴露根因**：真实模型失败降级到本地兜底虽保证流程不中断，但只 log「状态 FAILED」会掩盖问题。轮询失败时应一并记录 API 返回的 `code/message`，否则排障只能靠手动复现。
 - **断点续跑要校验产物文件、而非只信状态**：runner 原先仅凭 `project.json` 的 `DONE` 跳过节点，但产物文件可能已被删/损坏，导致「状态说完成、文件却不在」的空跑。修复：Agent 实现可选 `ArtifactVerifier.Verify(st) bool`，续跑前校验产物，缺失则该节点**及其下游**级联降级重跑（下游必须跟着重跑，否则用的是旧/缺失的中间产物）。
+- **角色一致性必须把锚点喂进 T2I 的 prompt，光"对接大模型"不够**：早期 `PollinationsT2I` 收了 `refImage`/`seed` 却没把角色外貌拼进 API prompt，导致同一角色每镜从文字重新想象、长相画风全漂移。一致性三件套：①角色 `Appearance` 外貌词**前置**进 prompt（扩散模型靠前 token 权重高）②固定 `seed` ③所有镜头共用一段**固定统一画风后缀**。注意：免费版 Pollinations 不支持传参考图（image-to-image），prompt 锁定能大幅改善但不保证逐帧同一张脸；要"同一张脸"需 IP-Adapter / 图生图 / 角色 LoRA。
 
 
