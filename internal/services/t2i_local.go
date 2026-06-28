@@ -48,13 +48,14 @@ var palettes = [][2]string{
 type shotMeta struct {
 	description string // 主画面描述
 	gender      string // male/female/""
+	appearance  string // 角色外貌（短发/风衣/年龄等），角色一致性的关键锚点
 	dialogue    string // 台词
 	scene       string // 场景（室内/室外/夜/日等）
 	shotType    string // 景别：全景/近景/特写等
 }
 
 // parsePrompt 从 prompt 中提取结构化元信息。
-// prompt 格式："描述||gender:male||dialogue:台词||scene:室内-夜||shottype:全景"
+// prompt 格式："描述||gender:male||appearance:外貌||dialogue:台词||scene:室内-夜||shottype:全景"
 // 不含分隔符时，整段作为 description，其余字段为空。
 func parsePrompt(prompt string) shotMeta {
 	parts := strings.Split(prompt, "||")
@@ -63,6 +64,8 @@ func parsePrompt(prompt string) shotMeta {
 		p = strings.TrimSpace(p)
 		if v, ok := strings.CutPrefix(p, "gender:"); ok {
 			m.gender = strings.TrimSpace(v)
+		} else if v, ok := strings.CutPrefix(p, "appearance:"); ok {
+			m.appearance = strings.TrimSpace(v)
 		} else if v, ok := strings.CutPrefix(p, "dialogue:"); ok {
 			m.dialogue = strings.TrimSpace(v)
 		} else if v, ok := strings.CutPrefix(p, "scene:"); ok {

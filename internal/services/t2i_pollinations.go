@@ -91,12 +91,20 @@ func (t *PollinationsT2I) Generate(ctx context.Context, prompt, refImage string,
 }
 
 // buildAPIPrompt 把中文结构化 meta 转为适合 Pollinations 的英文描述。
+//
+// 角色一致性的关键：把「角色外貌锚点」紧跟画面描述前置（扩散模型靠前 token 权重更高），
+// 再叠加固定 seed（调用方传入）与统一画风后缀，使同一角色跨镜头长相、画风尽量一致。
 func (t *PollinationsT2I) buildAPIPrompt(meta shotMeta) string {
 	var parts []string
 
 	// 主画面描述（直接用中文，Pollinations FLUX 支持）
 	if meta.description != "" {
 		parts = append(parts, meta.description)
+	}
+
+	// 角色外貌锚点（一致性核心）：把固定外貌前置，让模型每镜都锚定同一个人。
+	if meta.appearance != "" {
+		parts = append(parts, meta.appearance)
 	}
 
 	// 角色性别提示
@@ -130,11 +138,18 @@ func (t *PollinationsT2I) buildAPIPrompt(meta shotMeta) string {
 		parts = append(parts, "full body shot, wide angle")
 	}
 
-	// 通用画质提示
-	parts = append(parts, "cinematic, high quality, dramatic lighting, film still")
+	// 统一画风后缀（固定不变）：所有镜头共用同一组风格词 + 一致性提示，
+	// 配合固定 seed 锁定跨镜头的画风与人物调性，避免忽欧美忽亚洲、忽冷忽暖。
+	parts = append(parts, consistentStyleSuffix)
 
 	return strings.Join(parts, ", ")
 }
+
+// consistentStyleSuffix 是所有镜头共用的固定画风/一致性后缀。
+// 固定不变是关键——任何镜头都长这一种调性，才能跨镜头统一。
+const consistentStyleSuffix = "consistent character design, same person across shots, " +
+	"east asian features, photorealistic, cinematic film still, " +
+	"soft natural lighting, muted color grade, 35mm, high detail"
 
 // download 下载 URL 到 outPath（JPEG 直接存储）。
 func (t *PollinationsT2I) download(ctx context.Context, rawURL, outPath string) error {
