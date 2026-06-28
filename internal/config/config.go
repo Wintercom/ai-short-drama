@@ -7,6 +7,7 @@ package config
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -35,8 +36,9 @@ type Config struct {
 }
 
 // Load 读取 .env（若存在）并叠加环境变量，返回最终配置。
+// .env 查找顺序：当前目录 → 逐级向上（最多 5 层），兼容从子目录（如 cmd/drama/）运行的场景。
 func Load() *Config {
-	loadDotEnv(".env")
+	loadDotEnvUp(".env", 5)
 
 	return &Config{
 		LLMProvider: getStr("LLM_PROVIDER", "stub"),
@@ -55,6 +57,26 @@ func Load() *Config {
 		WorkspaceDir:    getStr("WORKSPACE_DIR", "workspace"),
 		FFmpegBin:       getStr("FFMPEG_BIN", "ffmpeg"),
 		FFprobeBin:      getStr("FFPROBE_BIN", "ffprobe"),
+	}
+}
+
+// loadDotEnvUp 从 cwd 起逐级向上查找 .env，找到即加载，最多向上 maxLevels 层。
+func loadDotEnvUp(name string, maxLevels int) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	for i := 0; i <= maxLevels; i++ {
+		p := filepath.Join(dir, name)
+		if _, err := os.Stat(p); err == nil {
+			loadDotEnv(p)
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break // 已到文件系统根目录
+		}
+		dir = parent
 	}
 }
 
