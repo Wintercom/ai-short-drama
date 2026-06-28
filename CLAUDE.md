@@ -55,6 +55,7 @@ gofmt -w . && go vet ./...
 - **macOS `say`**（可选）：系统语音配音（女声原声 + 男声变调），缺失时自动降级为静音轨
 - **edge-tts**（可选）：`TTS_PROVIDER=edge` 启用微软在线真人男/女声，首次自动 pip 安装；内置串行+重试防限速，失败自动降级到本地 say，流程不中断
 - **Pollinations AI**（可选）：`T2I_PROVIDER=pollinations` 启用免费在线文生图（真人级人物图，无需 Key）；内置串行+重试防限速（免费层并发会 429），失败自动降级到本地 SVG
+- **通义万相 I2V**（可选）：`I2V_PROVIDER=wan` + `I2V_API_KEY` 启用阿里云百炼图生视频（真人级人物动作，关键帧作首帧锚点保角色一致）；异步任务+轮询，失败/缺 Key 自动降级到本地 ffmpeg 运镜
 - **LLM**（可选）：默认用内置离线 Stub（零成本）；配置 `LLM_API_KEY` 可切 DeepSeek/Ollama 等 OpenAI 兼容端点。配置项见 `.env.example`
 
 > 注意：Homebrew 的 ffmpeg 未编译 `drawtext` 滤镜，本地关键帧（`T2I_PROVIDER=local`，默认）改用 **SVG → qlmanage → PNG** 路径渲染，含按性别/景别区分的人物剪影、场景背景与台词字幕（见 `services/t2i_local.go`）。
@@ -87,7 +88,7 @@ gofmt -w . && go vet ./...
 2. **资产/角色管理**（`asset_manager.go`）— 锁定角色一致性三要素（参考图 + seed + 音色）
 3. **视觉分镜**（`storyboard.go`）— 并发生成关键帧（T2I）与运镜片段（I2V）
 4. **音频合成**（`audio_synth.go`）— 按角色锁定音色并发配音（TTS）
-5. **后期合成**（`compositor.go`）— 音画对齐并拼接成最终视频
+5. **后期合成**（`compositor.go`）— 按配音时长适配片段（`Editor.FitDuration`，ffmpeg 冻结末帧/裁剪）做音画对齐并拼接成片；I2V 每镜仅在分镜阶段生成一次，合成阶段不重调，避免真实模型重复烧算力
 
 ## 语言要求
 
