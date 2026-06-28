@@ -73,7 +73,7 @@ func main() {
 	asset := agents.NewAssetManager(cfg, svc.T2I, bank)
 	storyboard := agents.NewStoryboard(cfg, svc.T2I, svc.I2V)
 	audio := agents.NewAudioSynth(cfg, svc.TTS)
-	compositor := agents.NewCompositor(cfg, svc.I2V, svc.Editor)
+	compositor := agents.NewCompositor(cfg, svc.Editor)
 
 	// 组装流水线并执行（总控调度层）。
 	pipeline := orchestrator.NewDefaultPipeline(scriptEngine, asset, storyboard, audio, compositor)
