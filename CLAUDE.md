@@ -79,6 +79,7 @@ gofmt -w . && go vet ./...
 - 智能体层依赖 `services` 的**接口**而非具体实现；换供应商（如把本地 ffmpeg 换成真实视频大模型）只改 `services/factory.go`，不动编排与智能体。
 - 镜头级并发在智能体**内部**用 goroutine + 信号量实现（见 `storyboard.go` / `audio_synth.go`）；节点级按 DAG 拓扑顺序驱动以保证可续跑。
 - 产物缓存：已存在且非空的产物直接跳过（`fsx.Exists`），视频生成贵且慢，避免重复生成。
+- 断点续跑会**校验产物文件**：续跑前对各节点调用 `ArtifactVerifier.Verify`，产物缺失的节点及其下游级联降级重跑——不会因「状态 DONE 但文件被删」而空跳过（见 `orchestrator/runner.go` 的 `verifyAndDemote`）。
 
 ## 架构设计意图
 
@@ -147,5 +148,6 @@ gofmt -w . && go vet ./...
 
 - **接入第三方多媒体模型前先探活 API**：通义万相 `wan2.2-i2v-plus` 仅支持 `480P/1080P`，不支持 `720P`（凭直觉按项目 720p 写死会被静默拒绝）。各家模型的 resolution/duration 等参数是离散枚举，接入前应先用 curl 探测真实端点（创建任务→轮询读 `message`），把可选档位做成配置项而非写死。
 - **降级机制要能暴露根因**：真实模型失败降级到本地兜底虽保证流程不中断，但只 log「状态 FAILED」会掩盖问题。轮询失败时应一并记录 API 返回的 `code/message`，否则排障只能靠手动复现。
+- **断点续跑要校验产物文件、而非只信状态**：runner 原先仅凭 `project.json` 的 `DONE` 跳过节点，但产物文件可能已被删/损坏，导致「状态说完成、文件却不在」的空跑。修复：Agent 实现可选 `ArtifactVerifier.Verify(st) bool`，续跑前校验产物，缺失则该节点**及其下游**级联降级重跑（下游必须跟着重跑，否则用的是旧/缺失的中间产物）。
 
 

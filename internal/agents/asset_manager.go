@@ -33,6 +33,19 @@ func NewAssetManager(cfg *config.Config, t2i services.T2I, bank *memory.Characte
 // Name 节点名。
 func (a *AssetManager) Name() string { return "asset_manager" }
 
+// Verify 报告角色资产是否完整：每个角色都已锁定并生成参考图文件。
+func (a *AssetManager) Verify(st *models.ProjectState) bool {
+	if len(st.Characters) == 0 {
+		return false
+	}
+	for i := range st.Characters {
+		if !fsx.Exists(st.Characters[i].RefImage) {
+			return false
+		}
+	}
+	return true
+}
+
 // Run 为每个角色锁定一致性要素并生成参考图。
 func (a *AssetManager) Run(ctx context.Context, st *models.ProjectState) error {
 	logx.Stage("🎭", "资产管理器：锁定角色一致性（参考图 + 种子 + 音色）")

@@ -37,6 +37,11 @@ func NewCompositor(cfg *config.Config, editor services.Editor) *Compositor {
 // Name 节点名。
 func (a *Compositor) Name() string { return "compositor" }
 
+// Verify 报告成片是否就绪：最终 output.mp4 存在且非空。
+func (a *Compositor) Verify(st *models.ProjectState) bool {
+	return fsx.Exists(st.FinalVideo)
+}
+
 // Run 合成最终成片。
 func (a *Compositor) Run(ctx context.Context, st *models.ProjectState) error {
 	logx.Stage("🎞️", "后期合成：音画对齐并拼接成片")

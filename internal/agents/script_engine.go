@@ -33,6 +33,11 @@ func NewScriptEngine(cfg *config.Config, llm services.LLM) *ScriptEngine {
 // Name 节点名。
 func (a *ScriptEngine) Name() string { return "script_engine" }
 
+// Verify 报告剧本产物是否就绪：已解析出镜头即视为完成（状态型产物，无磁盘文件）。
+func (a *ScriptEngine) Verify(st *models.ProjectState) bool {
+	return len(st.Shots) > 0
+}
+
 // Run 按入口分发：剧本模式走离线解析，创意模式走 AI 分层生成。
 func (a *ScriptEngine) Run(ctx context.Context, st *models.ProjectState) error {
 	if st.Project.Source == "script" {

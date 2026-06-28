@@ -20,6 +20,19 @@ type Agent interface {
 	Run(ctx context.Context, st *models.ProjectState) error // 执行逻辑：读写黑板
 }
 
+// ArtifactVerifier 是 Agent 的可选能力：报告本节点应产出的产物是否在磁盘上完整存在。
+//
+// 续跑（-resume）时，仅凭 project.json 里的 DONE 状态跳过节点是不可靠的——
+// 产物文件可能已被删除/损坏。实现本接口的节点会在续跑前被校验：
+// Verify 返回 false（产物缺失）则该节点（及其下游）降级重跑。
+// 未实现本接口的节点维持原有「按状态跳过」语义。
+//
+// 注意：各 Agent 的 Run 内部本就有逐产物的 fsx.Exists 缓存（幂等、重跑廉价），
+// 所以被降级重跑只会补做缺失部分，不会重复烧算力。
+type ArtifactVerifier interface {
+	Verify(st *models.ProjectState) bool
+}
+
 // Node 是 DAG 中的一个节点：一个 Agent 加上它依赖的前驱节点名。
 type Node struct {
 	Agent     Agent

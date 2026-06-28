@@ -37,6 +37,20 @@ func NewStoryboard(cfg *config.Config, t2i services.T2I, i2v services.I2V) *Stor
 // Name 节点名。
 func (a *Storyboard) Name() string { return "storyboard" }
 
+// Verify 报告分镜产物是否完整：每个镜头的关键帧与运镜片段文件都在。
+func (a *Storyboard) Verify(st *models.ProjectState) bool {
+	if len(st.Shots) == 0 {
+		return false
+	}
+	for i := range st.Shots {
+		s := &st.Shots[i]
+		if !fsx.Exists(s.KeyframePath) || !fsx.Exists(s.ClipPath) {
+			return false
+		}
+	}
+	return true
+}
+
 // Run 并发生成所有镜头的关键帧与视频片段。
 func (a *Storyboard) Run(ctx context.Context, st *models.ProjectState) error {
 	logx.Stage("🎬", "视觉分镜：并发生成关键帧与运镜片段")
