@@ -41,7 +41,7 @@ gofmt -w . && go vet ./...
 ```
 # 标题：重拾画笔        # 元信息：标题/题材/主题/梗概/节拍
 ## 角色
-- 林夏 | 性格设定 | 外貌描述
+- 林夏 | 性格设定 | 外貌描述 | 女    # 第4段性别(男/女)可省，省略则由名字猜测
 ## 分镜
 ### 镜头一
 场景：办公室-夜-内    角色：林夏    景别：全景    运镜：推
@@ -52,7 +52,8 @@ gofmt -w . && go vet ./...
 
 - **Go 1.24+**
 - **ffmpeg / ffprobe**：视频渲染核心（`brew install ffmpeg`）
-- **macOS `say`**（可选）：系统语音配音，缺失时自动降级为静音轨
+- **macOS `say`**（可选）：系统语音配音（女声原声 + 男声变调），缺失时自动降级为静音轨
+- **edge-tts**（可选）：`TTS_PROVIDER=edge` 启用微软在线真人男/女声，首次自动 pip 安装；内置串行+重试防限速，失败自动降级到本地 say，流程不中断
 - **LLM**（可选）：默认用内置离线 Stub（零成本）；配置 `LLM_API_KEY` 可切 DeepSeek/Ollama 等 OpenAI 兼容端点。配置项见 `.env.example`
 
 > 注意：Homebrew 的 ffmpeg 未编译 `drawtext` 滤镜，本地关键帧渲染改用 **SVG → qlmanage → PNG** 路径（见 `services/t2i_local.go`）。

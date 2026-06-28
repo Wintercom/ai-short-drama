@@ -178,7 +178,7 @@ func applyMeta(o *models.Outline, line string) {
 	}
 }
 
-// parseCharacterLine 解析角色行：- 名字 | 性格 | 外貌。
+// parseCharacterLine 解析角色行：- 名字 | 性格 | 外貌 | 性别（性别可省）。
 func parseCharacterLine(line string) (models.Character, bool) {
 	line = strings.TrimLeft(line, "-* ")
 	if line == "" {
@@ -195,10 +195,25 @@ func parseCharacterLine(line string) (models.Character, bool) {
 	if len(parts) > 2 {
 		c.Appearance = parts[2]
 	}
+	if len(parts) > 3 {
+		c.Gender = normalizeGender(parts[3])
+	}
 	if c.Name == "" {
 		return models.Character{}, false
 	}
 	return c, true
+}
+
+// normalizeGender 归一化性别词：男/male/m → male；女/female/f → female；其余空。
+func normalizeGender(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	switch {
+	case strings.Contains(s, "男"), s == "male", s == "m", s == "boy":
+		return "male"
+	case strings.Contains(s, "女"), s == "female", s == "f", s == "girl":
+		return "female"
+	}
+	return ""
 }
 
 // applyShotField 解析镜头内的键值行。

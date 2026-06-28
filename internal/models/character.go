@@ -11,11 +11,12 @@ type Character struct {
 	Name       string `json:"name"`       // 角色名
 	Persona    string `json:"persona"`    // 性格/背景设定
 	Appearance string `json:"appearance"` // 外貌描述（生成参考图的 prompt）
+	Gender     string `json:"gender"`     // 性别：male/female（空则由名字猜测），决定配音男/女声
 
 	// —— 以下为"锁定"字段，由资产管理器写入后全程不变 ——
 	RefImage string `json:"ref_image"` // 锁定的参考形象图路径
 	Seed     int    `json:"seed"`      // 锁定的随机种子（控画风一致）
-	VoiceID  string `json:"voice_id"`  // 锁定的音色 ID（控配音一致）
+	VoiceID  string `json:"voice_id"`  // 锁定的逻辑音色（male-N/female-N），由 TTS 层映射到具体引擎声音
 }
 
 // Scene 是一场戏，介于大纲与分镜之间的中间层。

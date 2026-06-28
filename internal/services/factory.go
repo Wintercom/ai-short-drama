@@ -29,12 +29,32 @@ func buildLLM(cfg *config.Config) LLM {
 	return NewStubLLM()
 }
 
-// buildTTS 选择 TTS 实现：say 可用且配置为 say 时用系统语音，否则静音兜底。
+// buildTTS 选择 TTS 实现。
+//   - edge：真人级在线男/女声，包装本地 say 兜底（限速/断网自动降级，流程不中断）；
+//   - say：macOS 系统女声 + 男声变调（离线零成本）；
+//   - 其他/不可用：静音兜底。
 func buildTTS(cfg *config.Config, editor *FFmpegEditor) TTS {
-	if cfg.TTSProvider == "say" && fsx.HasBinary("say") {
-		logx.Info("TTS：使用 macOS say 系统语音")
-		return NewSayTTS(cfg.FFmpegBin)
+	switch cfg.TTSProvider {
+	case "edge":
+		edge := NewEdgeTTS(cfg.FFmpegBin)
+		if edge.Available() && fsx.HasBinary("say") {
+			logx.Info("TTS：使用 edge-tts 真人配音（含男声），本地 say 变调兜底")
+			return NewFallbackTTS(edge, NewSayTTS(cfg.FFmpegBin), "edge-tts")
+		}
+		if edge.Available() {
+			logx.Info("TTS：使用 edge-tts 真人配音（含男声），静音兜底")
+			return NewFallbackTTS(edge, NewSilentTTS(editor), "edge-tts")
+		}
+		logx.Warn("edge-tts 不可用，降级到本地 say")
+		fallthrough
+	case "say":
+		if fsx.HasBinary("say") {
+			logx.Info("TTS：使用 macOS say（女声原声 + 男声变调）")
+			return NewSayTTS(cfg.FFmpegBin)
+		}
+		fallthrough
+	default:
+		logx.Info("TTS：使用静音兜底轨（无 say 或已禁用）")
+		return NewSilentTTS(editor)
 	}
-	logx.Info("TTS：使用静音兜底轨（无 say 或已禁用）")
-	return NewSilentTTS(editor)
 }

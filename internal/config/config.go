@@ -22,7 +22,7 @@ type Config struct {
 	// 多媒体能力供应商
 	T2IProvider string // local | ...
 	I2VProvider string // local | ...
-	TTSProvider string // say | silent
+	TTSProvider string // say | silent | edge
 
 	// 运行参数
 	ShotConcurrency int

@@ -99,7 +99,32 @@ func TestParseScreenplayEmpty(t *testing.T) {
 	}
 }
 
-// TestParseScreenplayEnglishHeaders 验证：英文区块标题（大小写不敏感）也能识别。
+// TestParseScreenplayGender 验证角色行第 4 段性别解析（中/英/男女）。
+func TestParseScreenplayGender(t *testing.T) {
+	script := `## 角色
+- 老王 | 沉稳 | 大叔 | 男
+- 小美 | 活泼 | 少女 | female
+- 路人 | 神秘 | 黑衣
+
+## 分镜
+### 镜头
+角色：老王
+台词：交给我。`
+
+	ps, err := parseScreenplay(script)
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+	if ps.characters[0].Gender != "male" {
+		t.Errorf("「男」未解析为 male：%q", ps.characters[0].Gender)
+	}
+	if ps.characters[1].Gender != "female" {
+		t.Errorf("「female」未解析为 female：%q", ps.characters[1].Gender)
+	}
+	if ps.characters[2].Gender != "" {
+		t.Errorf("未标性别应为空（留待猜测）：%q", ps.characters[2].Gender)
+	}
+}
 func TestParseScreenplayEnglishHeaders(t *testing.T) {
 	script := `# Title: Test
 
