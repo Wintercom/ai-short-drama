@@ -23,6 +23,10 @@ type Project struct {
 	Style    string `json:"style"`    // 视觉风格，如 写实/动漫/赛博朋克
 	Episodes int    `json:"episodes"` // 集数（基础闭环固定为 1）
 	Created  string `json:"created"`  // 创建时间（RFC3339）
+
+	// ScriptBaseDir 是剧本文件所在目录，用于把剧本里的相对画像路径解析为绝对路径
+	// （相对剧本目录，符合用户直觉）。stdin 输入时为当前工作目录。
+	ScriptBaseDir string `json:"script_base_dir"`
 }
 
 // Outline 是剧本引擎产出的顶层叙事结构。
