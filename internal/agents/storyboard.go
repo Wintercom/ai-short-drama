@@ -70,11 +70,21 @@ func (a *Storyboard) Run(ctx context.Context, st *models.ProjectState) error {
 // renderShot 渲染单个镜头：关键帧 → 片段。
 func (a *Storyboard) renderShot(ctx context.Context, st *models.ProjectState, shot *models.Shot, dir string) error {
 	// 注入主角的锁定一致性要素
-	var refImage string
+	var refImage, gender string
 	var seed int
 	if c, ok := st.CharByID(shot.CharID); ok {
 		refImage = c.RefImage
 		seed = c.Seed
+		gender = c.Gender
+	}
+
+	// 查找本镜头所属 scene，提取场景信息
+	sceneHeading := ""
+	for _, sc := range st.Scenes {
+		if sc.ID == shot.SceneID {
+			sceneHeading = sc.Heading
+			break
+		}
 	}
 
 	keyframePath := filepath.Join(dir, "shots", shot.ID+"_key.png")
@@ -82,7 +92,9 @@ func (a *Storyboard) renderShot(ctx context.Context, st *models.ProjectState, sh
 
 	// 1) 关键帧（缓存命中则跳过）
 	if !fsx.Exists(keyframePath) {
-		prompt := fmt.Sprintf("%s（%s/%s）", shot.KeyframePrompt, shot.ShotType, shot.Camera)
+		// 用 "||key:val" 编码格式把结构化元信息传给 T2I（LocalT2I 解析，真实模型直接用 description）
+		prompt := fmt.Sprintf("%s||gender:%s||dialogue:%s||scene:%s||shottype:%s",
+			shot.KeyframePrompt, gender, shot.Dialogue, sceneHeading, shot.ShotType)
 		if err := a.t2i.Generate(ctx, prompt, refImage, seed, keyframePath); err != nil {
 			return fmt.Errorf("关键帧生成失败: %w", err)
 		}

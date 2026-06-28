@@ -54,9 +54,10 @@ gofmt -w . && go vet ./...
 - **ffmpeg / ffprobe**：视频渲染核心（`brew install ffmpeg`）
 - **macOS `say`**（可选）：系统语音配音（女声原声 + 男声变调），缺失时自动降级为静音轨
 - **edge-tts**（可选）：`TTS_PROVIDER=edge` 启用微软在线真人男/女声，首次自动 pip 安装；内置串行+重试防限速，失败自动降级到本地 say，流程不中断
+- **Pollinations AI**（可选）：`T2I_PROVIDER=pollinations` 启用免费在线文生图（真人级人物图，无需 Key）；内置串行+重试防限速（免费层并发会 429），失败自动降级到本地 SVG
 - **LLM**（可选）：默认用内置离线 Stub（零成本）；配置 `LLM_API_KEY` 可切 DeepSeek/Ollama 等 OpenAI 兼容端点。配置项见 `.env.example`
 
-> 注意：Homebrew 的 ffmpeg 未编译 `drawtext` 滤镜，本地关键帧渲染改用 **SVG → qlmanage → PNG** 路径（见 `services/t2i_local.go`）。
+> 注意：Homebrew 的 ffmpeg 未编译 `drawtext` 滤镜，本地关键帧（`T2I_PROVIDER=local`，默认）改用 **SVG → qlmanage → PNG** 路径渲染，含按性别/景别区分的人物剪影、场景背景与台词字幕（见 `services/t2i_local.go`）。
 
 ## 代码架构
 
