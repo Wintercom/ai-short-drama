@@ -33,6 +33,21 @@ func NewAudioSynth(cfg *config.Config, tts services.TTS) *AudioSynth {
 // Name 节点名。
 func (a *AudioSynth) Name() string { return "audio_synth" }
 
+// Verify 报告配音产物是否完整：每个「有对白」镜头都已生成音轨文件。
+// 无对白镜头不产音轨（由合成器补静音），不计入校验。
+func (a *AudioSynth) Verify(st *models.ProjectState) bool {
+	for i := range st.Shots {
+		s := &st.Shots[i]
+		if s.Dialogue == "" {
+			continue
+		}
+		if !fsx.Exists(s.AudioPath) {
+			return false
+		}
+	}
+	return true
+}
+
 // Run 并发为各镜头合成配音。
 func (a *AudioSynth) Run(ctx context.Context, st *models.ProjectState) error {
 	logx.Stage("🔊", "音频合成：按角色锁定音色并发配音")
