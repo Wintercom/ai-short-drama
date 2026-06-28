@@ -55,6 +55,7 @@ gofmt -w . && go vet ./...
 - **macOS `say`**（可选）：系统语音配音（女声原声 + 男声变调），缺失时自动降级为静音轨
 - **edge-tts**（可选）：`TTS_PROVIDER=edge` 启用微软在线真人男/女声，首次自动 pip 安装；内置串行+重试防限速，失败自动降级到本地 say，流程不中断
 - **Pollinations AI**（可选）：`T2I_PROVIDER=pollinations` 启用免费在线文生图（真人级人物图，无需 Key）；内置串行+重试防限速（免费层并发会 429），失败自动降级到本地 SVG
+- **通义千问图像编辑 T2I**（可选）：`T2I_PROVIDER=wanedit` + `T2I_API_KEY` 启用参考图驱动的图生图（`qwen-image-edit-plus`）——角色锚点图作参考，每镜「图生图」保持人物，实现**跨镜头同一张脸**（一致性最强）；缺 Key 自动降级 Pollinations
 - **通义万相 I2V**（可选）：`I2V_PROVIDER=wan` + `I2V_API_KEY` 启用阿里云百炼图生视频（真人级人物动作，关键帧作首帧锚点保角色一致）；异步任务+轮询，失败/缺 Key 自动降级到本地 ffmpeg 运镜
 - **LLM**（可选）：默认用内置离线 Stub（零成本）；配置 `LLM_API_KEY` 可切 DeepSeek/Ollama 等 OpenAI 兼容端点。配置项见 `.env.example`
 

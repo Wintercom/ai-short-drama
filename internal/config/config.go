@@ -21,9 +21,15 @@ type Config struct {
 	LLMAPIKey   string
 
 	// 多媒体能力供应商
-	T2IProvider string // local | pollinations
+	T2IProvider string // local | pollinations | wanedit
 	I2VProvider string // local | wan
 	TTSProvider string // say | silent | edge
+
+	// T2I（文生图/参考图驱动）真实模型配置（T2I_PROVIDER=wanedit 时生效）
+	T2IAPIKey    string // 阿里云百炼 DashScope API Key
+	T2IModel     string // 文生图模型，如 qwen-image
+	T2IEditModel string // 图生图编辑模型（参考图驱动一致性），如 qwen-image-edit-plus
+	T2IBaseURL   string // DashScope 服务地址
 
 	// I2V（图生视频）真实模型配置（I2V_PROVIDER=wan 时生效）
 	I2VAPIKey     string // 阿里云百炼 DashScope API Key
@@ -55,6 +61,12 @@ func Load() *Config {
 		T2IProvider: getStr("T2I_PROVIDER", "local"),
 		I2VProvider: getStr("I2V_PROVIDER", "local"),
 		TTSProvider: getStr("TTS_PROVIDER", "say"),
+
+		// T2I 参考图驱动配置；T2I_API_KEY 回退 DASHSCOPE_API_KEY
+		T2IAPIKey:    getStr("T2I_API_KEY", getStr("DASHSCOPE_API_KEY", "")),
+		T2IModel:     getStr("T2I_MODEL", "qwen-image"),
+		T2IEditModel: getStr("T2I_EDIT_MODEL", "qwen-image-edit-plus"),
+		T2IBaseURL:   getStr("T2I_BASE_URL", "https://dashscope.aliyuncs.com"),
 
 		// I2V_API_KEY 优先，回退到 DashScope 官方惯用的 DASHSCOPE_API_KEY
 		I2VAPIKey:     getStr("I2V_API_KEY", getStr("DASHSCOPE_API_KEY", "")),

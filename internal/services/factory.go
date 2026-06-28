@@ -20,9 +20,20 @@ func Build(cfg *config.Config) *Bundle {
 }
 
 // buildT2I 选择 T2I 实现。
+//   - wanedit：通义千问图像编辑（参考图驱动，跨镜头同一张脸），兜底 Pollinations；
+//     缺 API Key 时降级 pollinations。
 //   - pollinations：Pollinations.AI 免费在线 API（真实图片，无需 Key），本地 SVG 兜底；
 //   - local（默认）：SVG 矢量人物剪影（零成本、离线）。
 func buildT2I(cfg *config.Config) T2I {
+	if cfg.T2IProvider == "wanedit" {
+		if cfg.T2IAPIKey != "" {
+			logx.Info("T2I：使用通义千问图像编辑（参考图驱动一致性），Pollinations 兜底")
+			fallback := NewPollinationsT2I(cfg.FFmpegBin, cfg.VideoWidth, cfg.VideoHeight)
+			return NewWanEditT2I(cfg.T2IAPIKey, cfg.T2IModel, cfg.T2IEditModel, cfg.T2IBaseURL, fallback)
+		}
+		logx.Warn("T2I_PROVIDER=wanedit 但未配置 T2I_API_KEY，降级到 Pollinations")
+		return NewPollinationsT2I(cfg.FFmpegBin, cfg.VideoWidth, cfg.VideoHeight)
+	}
 	if cfg.T2IProvider == "pollinations" {
 		logx.Info("T2I：使用 Pollinations AI（免费在线真实图片），本地 SVG 兜底")
 		return NewPollinationsT2I(cfg.FFmpegBin, cfg.VideoWidth, cfg.VideoHeight)
