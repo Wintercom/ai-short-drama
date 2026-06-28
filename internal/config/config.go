@@ -21,9 +21,15 @@ type Config struct {
 	LLMAPIKey   string
 
 	// 多媒体能力供应商
-	T2IProvider string // local | ...
-	I2VProvider string // local | ...
+	T2IProvider string // local | pollinations
+	I2VProvider string // local | wan
 	TTSProvider string // say | silent | edge
+
+	// I2V（图生视频）真实模型配置（I2V_PROVIDER=wan 时生效）
+	I2VAPIKey     string // 阿里云百炼 DashScope API Key
+	I2VModel      string // 通义万相模型，如 wan2.2-i2v-plus
+	I2VBaseURL    string // DashScope 服务地址
+	I2VResolution string // 输出分辨率档位（wan2.2-i2v-plus 支持 480P/1080P）
 
 	// 运行参数
 	ShotConcurrency int
@@ -49,6 +55,12 @@ func Load() *Config {
 		T2IProvider: getStr("T2I_PROVIDER", "local"),
 		I2VProvider: getStr("I2V_PROVIDER", "local"),
 		TTSProvider: getStr("TTS_PROVIDER", "say"),
+
+		// I2V_API_KEY 优先，回退到 DashScope 官方惯用的 DASHSCOPE_API_KEY
+		I2VAPIKey:     getStr("I2V_API_KEY", getStr("DASHSCOPE_API_KEY", "")),
+		I2VModel:      getStr("I2V_MODEL", "wan2.2-i2v-plus"),
+		I2VBaseURL:    getStr("I2V_BASE_URL", "https://dashscope.aliyuncs.com"),
+		I2VResolution: getStr("I2V_RESOLUTION", "480P"),
 
 		ShotConcurrency: getInt("SHOT_CONCURRENCY", 4),
 		VideoWidth:      getInt("VIDEO_WIDTH", 1280),

@@ -107,7 +107,9 @@ func (a *Storyboard) renderShot(ctx context.Context, st *models.ProjectState, sh
 		dur = 3.0
 	}
 	if !fsx.Exists(clipPath) {
-		if err := a.i2v.Animate(ctx, keyframePath, shot.Camera, dur, clipPath); err != nil {
+		// shot.KeyframePrompt 既是关键帧画面描述，也是人物动作描述，
+		// 传给 I2V 驱动真实模型的肢体/表情动作（本地实现忽略）。
+		if err := a.i2v.Animate(ctx, keyframePath, shot.Camera, shot.KeyframePrompt, dur, clipPath); err != nil {
 			return fmt.Errorf("运镜成片失败: %w", err)
 		}
 	}

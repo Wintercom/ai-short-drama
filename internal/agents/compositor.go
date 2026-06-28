@@ -15,21 +15,23 @@ import (
 // Compositor 是后期合成器（流水线最后一个智能体）。
 //
 // 把分散的镜头产物合成为完整成片：
-//  1. 对每个镜头，按配音时长重新生成等长运镜片段（音画对齐的关键）；
+//  1. 对每个镜头，按配音时长把已生成的片段适配到等长（音画对齐的关键）；
 //  2. 合成有声片段（无对白镜头补静音轨）；
 //  3. 按镜号顺序拼接所有有声片段 → 最终 mp4。
 //
-// 之所以在此处按音频时长重做片段：配音时长在音频合成后才确定，
+// 之所以在此处按音频时长适配片段：配音时长在音频合成后才确定，
 // 让画面时长服从配音，才能保证每句台词说完再切镜，音画不错位。
+//
+// 注意：时长适配用廉价的 ffmpeg（FitDuration）而非重调 I2V——
+// 真实 I2V（如 Wan）每镜只在分镜阶段生成一次，避免重复烧算力/费用。
 type Compositor struct {
 	cfg    *config.Config
-	i2v    services.I2V
 	editor services.Editor
 }
 
 // NewCompositor 构造合成器。
-func NewCompositor(cfg *config.Config, i2v services.I2V, editor services.Editor) *Compositor {
-	return &Compositor{cfg: cfg, i2v: i2v, editor: editor}
+func NewCompositor(cfg *config.Config, editor services.Editor) *Compositor {
+	return &Compositor{cfg: cfg, editor: editor}
 }
 
 // Name 节点名。
@@ -53,9 +55,13 @@ func (a *Compositor) Run(ctx context.Context, st *models.ProjectState) error {
 		}
 		st.UpdateShot(shot.ID, func(s *models.Shot) { s.Duration = duration })
 
-		// 2) 按配音时长重做等长运镜片段，使画面与台词时长一致。
+		// 2) 把已生成的片段适配到配音时长（ffmpeg 冻结末帧/裁剪，廉价且不重调 I2V）。
 		alignedClip := filepath.Join(finalDir, shot.ID+"_aligned.mp4")
-		if err := a.i2v.Animate(ctx, shot.KeyframePath, shot.Camera, duration, alignedClip); err != nil {
+		srcClip := shot.ClipPath
+		if srcClip == "" || !fsx.Exists(srcClip) {
+			return fmt.Errorf("镜头[%s]缺少分镜片段，无法对齐", shot.ID)
+		}
+		if err := a.editor.FitDuration(ctx, srcClip, duration, alignedClip); err != nil {
 			return fmt.Errorf("镜头[%s]对齐片段生成失败: %w", shot.ID, err)
 		}
 

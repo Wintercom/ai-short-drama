@@ -23,8 +23,10 @@ type T2I interface {
 // I2V 图生视频能力（让关键帧动起来）。
 type I2V interface {
 	// Animate 把关键帧 keyframe 转为时长 duration 秒的视频片段。
-	// camera 描述运镜方式（推/拉/摇/移）。
-	Animate(ctx context.Context, keyframe, camera string, duration float64, outPath string) error
+	//   - camera 描述运镜方式（推/拉/摇/移），用于本地 zoompan 运镜；
+	//   - motion 描述画面中人物/主体的动作（如"抱拳回礼，神色激动"），
+	//     真实 I2V 模型据此驱动肢体与表情动作；本地实现忽略该参数。
+	Animate(ctx context.Context, keyframe, camera, motion string, duration float64, outPath string) error
 }
 
 // TTS 语音合成能力（角色配音）。
@@ -43,6 +45,9 @@ type Editor interface {
 	SilentAudio(ctx context.Context, duration float64, outPath string) error
 	// ProbeDuration 探测媒体文件时长（秒），用于音画对齐。
 	ProbeDuration(ctx context.Context, path string) (float64, error)
+	// FitDuration 把已有视频片段适配到目标时长：过短则冻结末帧补长，
+	// 过长则裁剪。纯 ffmpeg 操作（廉价），避免为对齐时长而重复调用昂贵的 I2V。
+	FitDuration(ctx context.Context, clip string, target float64, outPath string) error
 }
 
 // Bundle 聚合全部能力，便于注入各智能体。

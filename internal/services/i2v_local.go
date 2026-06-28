@@ -27,7 +27,10 @@ func NewLocalI2V(ffmpeg string, w, h, fps int) *LocalI2V {
 }
 
 // Animate 把关键帧渲染为 duration 秒的运镜片段。
-func (v *LocalI2V) Animate(ctx context.Context, keyframe, camera string, duration float64, outPath string) error {
+// motion（人物动作描述）对本地 zoompan 无意义，故忽略——本地只能做镜头运动，
+// 无法驱动人物肢体；真实 I2V（如 WanI2V）才会用到 motion。
+func (v *LocalI2V) Animate(ctx context.Context, keyframe, camera, motion string, duration float64, outPath string) error {
+	_ = motion // 本地实现不支持人物动作
 	if err := fsx.EnsureDir(filepath.Dir(outPath)); err != nil {
 		return err
 	}

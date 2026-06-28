@@ -114,6 +114,41 @@ func (e *FFmpegEditor) ProbeDuration(ctx context.Context, path string) (float64,
 	return d, nil
 }
 
+// FitDuration 把已有视频片段适配到目标时长。
+//   - 过短：用 tpad 冻结末帧补足（画面定格，不黑屏）；
+//   - 过长或相近：用 -t 裁剪到目标时长。
+//
+// 纯 ffmpeg 重编码，廉价且对所有 I2V 来源通用——这样真实 I2V（如 Wan）
+// 每镜只需生成一次，无需为对齐配音时长而二次调用昂贵接口。
+func (e *FFmpegEditor) FitDuration(ctx context.Context, clip string, target float64, outPath string) error {
+	if err := fsx.EnsureDir(filepath.Dir(outPath)); err != nil {
+		return err
+	}
+	if target <= 0 {
+		target = 1
+	}
+
+	cur, err := e.ProbeDuration(ctx, clip)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"-y", "-i", clip}
+	if cur+0.05 < target {
+		// 过短：冻结末帧补长到 target（tpad 在视频尾部克隆最后一帧）。
+		vf := fmt.Sprintf("tpad=stop_mode=clone:stop_duration=%s", ftoa(target-cur))
+		args = append(args, "-vf", vf)
+	}
+	// 统一以 -t 截到精确目标时长（补长后裁掉多余、过长则直接裁短）。
+	args = append(args,
+		"-t", ftoa(target),
+		"-c:v", "libx264", "-pix_fmt", "yuv420p",
+		"-r", strconv.Itoa(e.FPS),
+		outPath,
+	)
+	return e.run(ctx, args...)
+}
+
 // run 执行 ffmpeg 命令。
 func (e *FFmpegEditor) run(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, e.FFmpeg, args...)
