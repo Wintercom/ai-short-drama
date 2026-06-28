@@ -58,7 +58,15 @@ func (a *AssetManager) Run(ctx context.Context, st *models.ProjectState) error {
 		// 1) 锁定种子与音色（确定性，可复现）
 		a.bank.Lock(c, i)
 
-		// 2) 生成角色参考图（一次生成，全程复用）
+		// 2) 未指定画像时，尝试按角色名匹配 faces 目录（用户自带"演员"）
+		if c.RefImage == "" || !fsx.Exists(c.RefImage) {
+			if p := a.matchFaceByName(c.Name); p != "" {
+				c.RefImage = p
+				logx.Step("%s：按名匹配到画像 %s", c.Name, filepath.Base(p))
+			}
+		}
+
+		// 3) 仍无参考图则 AI 生成锚点（一次生成，全程复用）；已指定/匹配则直接复用
 		if c.RefImage == "" || !fsx.Exists(c.RefImage) {
 			refPath := filepath.Join(dir, fmt.Sprintf("%s_%s.png", c.ID, slug(c.Name, 12)))
 			prompt := fmt.Sprintf("角色形象设定：%s。外貌：%s", c.Name, c.Appearance)
@@ -66,11 +74,29 @@ func (a *AssetManager) Run(ctx context.Context, st *models.ProjectState) error {
 				return fmt.Errorf("生成角色[%s]参考图失败: %w", c.Name, err)
 			}
 			c.RefImage = refPath
-			st.AddAsset(models.Asset{Kind: "character", Ref: c.ID, Path: refPath})
 		}
+		st.AddAsset(models.Asset{Kind: "character", Ref: c.ID, Path: c.RefImage})
 
 		logx.Done("%s：seed=%d 音色=%s 参考图=%s",
 			c.Name, c.Seed, c.VoiceID, filepath.Base(c.RefImage))
 	}
 	return nil
+}
+
+// matchFaceByName 在 faces 目录里按「角色名.扩展名」查找用户画像，命中返回绝对路径。
+// 支持常见图片扩展名；目录或文件不存在则返回空（回退 AI 生成）。
+func (a *AssetManager) matchFaceByName(name string) string {
+	if a.cfg.FacesDir == "" || name == "" {
+		return ""
+	}
+	for _, ext := range []string{".png", ".jpg", ".jpeg", ".webp"} {
+		p := filepath.Join(a.cfg.FacesDir, name+ext)
+		if fsx.Exists(p) {
+			if abs, err := filepath.Abs(p); err == nil {
+				return abs
+			}
+			return p
+		}
+	}
+	return ""
 }

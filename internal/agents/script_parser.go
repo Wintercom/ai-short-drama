@@ -24,8 +24,9 @@ import (
 //	# 梗概：程序员深夜重拾儿时画笔的故事
 //
 //	## 角色
-//	- 林夏 | 坚韧敏感的程序员，怀揣画家梦 | 二十多岁，短发，风衣
+//	- 林夏 | 坚韧敏感的程序员，怀揣画家梦 | 二十多岁，短发，风衣 | 女 | ./faces/林夏.png
 //	- 陈默 | 沉稳的画室老师 | 三十多岁，眼镜，深色大衣
+//	（角色行第 4 段性别、第 5 段画像路径均可省；指定画像则全程以它为参考图）
 //
 //	## 分镜
 //	### 镜头
@@ -178,8 +179,15 @@ func applyMeta(o *models.Outline, line string) {
 	}
 }
 
-// parseCharacterLine 解析角色行：- 名字 | 性格 | 外貌 | 性别（性别可省）。
+// parseCharacterLine 解析角色行：- 名字 | 性格 | 外貌 | 性别 | 画像路径（后两段可省）。
+//   - 必须以列表标记（- 或 *）开头，否则视为非角色行（如 # 注释）跳过
+//   - 第 4 段性别可省（省略则由名字猜测）
+//   - 第 5 段画像路径可省（用户自带"演员"参考图；省略则由 AI 生成锚点）
 func parseCharacterLine(line string) (models.Character, bool) {
+	// 角色行必须是列表项；非「- / *」开头的（如 # 注释、裸文本）不是角色。
+	if !strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "*") {
+		return models.Character{}, false
+	}
 	line = strings.TrimLeft(line, "-* ")
 	if line == "" {
 		return models.Character{}, false
@@ -197,6 +205,10 @@ func parseCharacterLine(line string) (models.Character, bool) {
 	}
 	if len(parts) > 3 {
 		c.Gender = normalizeGender(parts[3])
+	}
+	if len(parts) > 4 && parts[4] != "" {
+		// 用户指定的角色画像路径（可为相对路径，后续相对剧本目录解析）。
+		c.RefImage = parts[4]
 	}
 	if c.Name == "" {
 		return models.Character{}, false
