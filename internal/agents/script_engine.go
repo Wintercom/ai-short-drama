@@ -3,8 +3,10 @@ package agents
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/cuiwenyang/ai-short-drama/internal/config"
+	"github.com/cuiwenyang/ai-short-drama/internal/fsx"
 	"github.com/cuiwenyang/ai-short-drama/internal/logx"
 	"github.com/cuiwenyang/ai-short-drama/internal/models"
 	"github.com/cuiwenyang/ai-short-drama/internal/services"
@@ -63,6 +65,7 @@ func (a *ScriptEngine) runFromScript(ctx context.Context, st *models.ProjectStat
 
 	st.Outline = ps.outline
 	st.Characters = ps.characters
+	resolveCharImages(st.Characters, st.Project.ScriptBaseDir) // 把相对画像路径解析为绝对路径
 	scenes, shots := assembleScenes(ps.shots, ps.characters)
 	st.Scenes = scenes
 	st.Shots = shots
@@ -73,6 +76,27 @@ func (a *ScriptEngine) runFromScript(ctx context.Context, st *models.ProjectStat
 		logx.Step("%s（%s）", c.Name, c.ID)
 	}
 	return nil
+}
+
+// resolveCharImages 把用户在剧本里写的相对画像路径解析为绝对路径（相对剧本目录）。
+// 绝对路径原样保留；路径指向的文件不存在时打印警告并清空，回退到 AI 生成锚点（不中断）。
+func resolveCharImages(chars []models.Character, baseDir string) {
+	for i := range chars {
+		ref := chars[i].RefImage
+		if ref == "" {
+			continue
+		}
+		if !filepath.IsAbs(ref) && baseDir != "" {
+			ref = filepath.Join(baseDir, ref)
+		}
+		if !fsx.Exists(ref) {
+			logx.Warn("角色[%s]指定画像不存在：%s（将回退 AI 生成锚点）", chars[i].Name, ref)
+			chars[i].RefImage = ""
+			continue
+		}
+		chars[i].RefImage = ref
+		logx.Step("角色[%s]使用指定画像：%s", chars[i].Name, filepath.Base(ref))
+	}
 }
 
 // runFromIdea 执行三层递进生成（创意 → 剧本）。

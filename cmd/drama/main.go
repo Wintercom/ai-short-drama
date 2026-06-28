@@ -123,6 +123,7 @@ func setupProject(cfg *config.Config, idea, script, genre, style, resume string)
 		}
 		p.Source = "script"
 		p.Script = content
+		p.ScriptBaseDir = scriptBaseDir(script) // 相对画像路径以剧本所在目录为基准
 		p.ID = newProjectID(content)
 
 	case idea != "": // 创意模式：AI 生成剧本 → 视频
@@ -158,6 +159,21 @@ func readScript(path string) (string, error) {
 		return "", fmt.Errorf("剧本内容为空：%s", path)
 	}
 	return string(b), nil
+}
+
+// scriptBaseDir 返回剧本文件所在目录（绝对路径）；stdin（"-"）时返回当前工作目录。
+// 用于把剧本里的相对画像路径解析为相对剧本目录的绝对路径。
+func scriptBaseDir(path string) string {
+	if path == "-" {
+		if wd, err := os.Getwd(); err == nil {
+			return wd
+		}
+		return "."
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return filepath.Dir(abs)
+	}
+	return filepath.Dir(path)
 }
 
 // newProjectID 生成形如 20060102_150405_<hash> 的项目 ID（时间前缀便于排序）。

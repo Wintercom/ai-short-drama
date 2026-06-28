@@ -43,6 +43,7 @@ type Config struct {
 	VideoHeight     int
 	VideoFPS        int
 	WorkspaceDir    string
+	FacesDir        string // 用户角色画像目录：按「角色名.png/jpg」自动匹配为参考图
 	FFmpegBin       string
 	FFprobeBin      string
 }
@@ -79,6 +80,7 @@ func Load() *Config {
 		VideoHeight:     getInt("VIDEO_HEIGHT", 720),
 		VideoFPS:        getInt("VIDEO_FPS", 25),
 		WorkspaceDir:    getStr("WORKSPACE_DIR", "workspace"),
+		FacesDir:        getStr("FACES_DIR", "faces"),
 		FFmpegBin:       getStr("FFMPEG_BIN", "ffmpeg"),
 		FFprobeBin:      getStr("FFPROBE_BIN", "ffprobe"),
 	}

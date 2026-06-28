@@ -9,6 +9,10 @@ workspace/
 # 环境与密钥
 .env
 
+# 用户角色画像（私有素材，不入库；保留 README 说明）
+/faces/*
+!/faces/README.md
+
 # Go
 /bin/
 *.test
