@@ -39,7 +39,7 @@ func buildI2V(cfg *config.Config) I2V {
 	if cfg.I2VProvider == "wan" {
 		if cfg.I2VAPIKey != "" {
 			logx.Info("I2V：使用通义万相图生视频（真人级动作），本地运镜兜底")
-			return NewWanI2V(cfg.I2VAPIKey, cfg.I2VModel, cfg.I2VBaseURL,
+			return NewWanI2V(cfg.I2VAPIKey, cfg.I2VModel, cfg.I2VBaseURL, cfg.I2VResolution,
 				cfg.FFmpegBin, cfg.VideoWidth, cfg.VideoHeight, cfg.VideoFPS)
 		}
 		logx.Warn("I2V_PROVIDER=wan 但未配置 I2V_API_KEY，降级到本地运镜")

@@ -82,19 +82,22 @@ func TestEncodeImageDataURI(t *testing.T) {
 
 // TestWanI2VFallbackWhenNoKey 验证缺 Key 时 Available 报告不可用。
 func TestWanI2VAvailable(t *testing.T) {
-	withKey := NewWanI2V("sk-xxx", "", "", "ffmpeg", 1280, 720, 25)
+	withKey := NewWanI2V("sk-xxx", "", "", "", "ffmpeg", 1280, 720, 25)
 	if !withKey.Available() {
 		t.Error("有 Key 时应可用")
 	}
-	noKey := NewWanI2V("", "", "", "ffmpeg", 1280, 720, 25)
+	noKey := NewWanI2V("", "", "", "", "ffmpeg", 1280, 720, 25)
 	if noKey.Available() {
 		t.Error("无 Key 时应不可用")
 	}
-	// 默认模型与地址兜底
+	// 默认模型、地址、分辨率兜底
 	if withKey.Model != "wan2.2-i2v-plus" {
 		t.Errorf("默认模型应为 wan2.2-i2v-plus，实际 %q", withKey.Model)
 	}
 	if withKey.BaseURL != "https://dashscope.aliyuncs.com" {
 		t.Errorf("默认地址兜底错误：%q", withKey.BaseURL)
+	}
+	if withKey.Resolution != "480P" {
+		t.Errorf("默认分辨率应为 480P，实际 %q", withKey.Resolution)
 	}
 }

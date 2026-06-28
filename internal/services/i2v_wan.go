@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuiwenyang/ai-short-drama/internal/fsx"
@@ -35,29 +36,36 @@ type WanI2V struct {
 	APIKey     string
 	Model      string // wan2.2-i2v-plus / wanx2.1-i2v-turbo 等
 	BaseURL    string
-	Resolution string // 720P / 1080P
+	Resolution string // 480P / 1080P（wan2.2-i2v-plus 不支持 720P）
 	HTTP       *http.Client
 
 	SubmitTimeout time.Duration // 单次提交请求超时
 	PollInterval  time.Duration // 轮询间隔
 	PollTimeout   time.Duration // 轮询总封顶（防止任务卡死）
-	MaxRetries    int           // 提交阶段限流重试次数
+	MaxRetries    int           // 提交/下载阶段重试次数
+
+	submitMu sync.Mutex // 仅串行化"提交"请求，避开并发提交触发 RateQuota 限流；轮询/下载仍并发
 }
 
 // NewWanI2V 构造通义万相 I2V，以 LocalI2V 作降级兜底。
-func NewWanI2V(apiKey, model, baseURL string, ffmpeg string, w, h, fps int) *WanI2V {
+// resolution 取模型支持的档位（wan2.2-i2v-plus 支持 480P / 1080P，不支持 720P）；
+// 留空默认 480P（出片快、成本低）。
+func NewWanI2V(apiKey, model, baseURL, resolution string, ffmpeg string, w, h, fps int) *WanI2V {
 	if model == "" {
 		model = "wan2.2-i2v-plus"
 	}
 	if baseURL == "" {
 		baseURL = "https://dashscope.aliyuncs.com"
 	}
+	if resolution == "" {
+		resolution = "480P"
+	}
 	return &WanI2V{
 		Local:         NewLocalI2V(ffmpeg, w, h, fps),
 		APIKey:        apiKey,
 		Model:         model,
 		BaseURL:       strings.TrimRight(baseURL, "/"),
-		Resolution:    "720P",
+		Resolution:    resolution,
 		HTTP:          &http.Client{},
 		SubmitTimeout: 30 * time.Second,
 		PollInterval:  15 * time.Second,
@@ -102,7 +110,12 @@ func (v *WanI2V) generate(ctx context.Context, keyframe, camera, motion string, 
 }
 
 // submit 创建图生视频异步任务，返回 task_id（带限流重试退避）。
+// 全程持有 submitMu：并发镜头的提交被串行化，避开 RateQuota 限流；
+// 提交只是秒级请求，串行代价小，真正耗时的轮询/下载仍并发进行。
 func (v *WanI2V) submit(ctx context.Context, imgURI, prompt string, duration float64) (string, error) {
+	v.submitMu.Lock()
+	defer v.submitMu.Unlock()
+
 	body := map[string]any{
 		"model": v.Model,
 		"input": map[string]any{
@@ -185,18 +198,22 @@ func (v *WanI2V) poll(ctx context.Context, taskID string) (string, error) {
 			return "", fmt.Errorf("任务 %s 轮询超时（%s）", taskID, v.PollTimeout)
 		}
 
-		status, videoURL, err := v.queryTask(ctx, taskID)
+		st, err := v.queryTask(ctx, taskID)
 		if err != nil {
 			return "", err
 		}
-		switch status {
+		switch st.status {
 		case "SUCCEEDED":
-			if videoURL == "" {
+			if st.videoURL == "" {
 				return "", fmt.Errorf("任务成功但无 video_url")
 			}
-			return videoURL, nil
+			return st.videoURL, nil
 		case "FAILED", "CANCELED", "UNKNOWN":
-			return "", fmt.Errorf("任务 %s 状态 %s", taskID, status)
+			// 带上 API 返回的 code/message，便于排障（如分辨率不支持等）。
+			if st.message != "" {
+				return "", fmt.Errorf("任务 %s 状态 %s：%s（%s）", taskID, st.status, st.message, st.code)
+			}
+			return "", fmt.Errorf("任务 %s 状态 %s", taskID, st.status)
 		}
 		// PENDING / RUNNING：等待后继续轮询。
 		select {
@@ -207,44 +224,82 @@ func (v *WanI2V) poll(ctx context.Context, taskID string) (string, error) {
 	}
 }
 
+// taskResult 是一次任务查询的结构化结果。
+type taskResult struct {
+	status   string
+	videoURL string
+	code     string
+	message  string
+}
+
 // queryTask 查询单次任务状态。
-func (v *WanI2V) queryTask(ctx context.Context, taskID string) (status, videoURL string, err error) {
+func (v *WanI2V) queryTask(ctx context.Context, taskID string) (taskResult, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, v.SubmitTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet,
 		v.BaseURL+"/api/v1/tasks/"+taskID, nil)
 	if err != nil {
-		return "", "", err
+		return taskResult{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+v.APIKey)
 
 	resp, err := v.HTTP.Do(req)
 	if err != nil {
-		return "", "", err
+		return taskResult{}, err
 	}
 	data, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("查询任务 HTTP %d: %s", resp.StatusCode, tail(string(data), 200))
+		return taskResult{}, fmt.Errorf("查询任务 HTTP %d: %s", resp.StatusCode, tail(string(data), 200))
 	}
 
 	var r struct {
 		Output struct {
 			TaskStatus string `json:"task_status"`
 			VideoURL   string `json:"video_url"`
+			Code       string `json:"code"`
+			Message    string `json:"message"`
 		} `json:"output"`
 	}
 	if err := json.Unmarshal(data, &r); err != nil {
-		return "", "", fmt.Errorf("解析任务响应失败: %w", err)
+		return taskResult{}, fmt.Errorf("解析任务响应失败: %w", err)
 	}
-	return r.Output.TaskStatus, r.Output.VideoURL, nil
+	return taskResult{
+		status:   r.Output.TaskStatus,
+		videoURL: r.Output.VideoURL,
+		code:     r.Output.Code,
+		message:  r.Output.Message,
+	}, nil
 }
 
-// download 下载视频 URL 到本地文件。
+// download 下载视频 URL 到本地文件（带重试退避）。
+// 任务已生成成功，视频很贵，不能因 OSS 偶发 TLS/超时就丢弃——故下载失败也重试。
 func (v *WanI2V) download(ctx context.Context, rawURL, outPath string) error {
-	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	var lastErr error
+	for attempt := 0; attempt <= v.MaxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(attempt) * 2 * time.Second
+			logx.Warn("Wan I2V 视频下载第 %d 次重试（退避 %s）：%v", attempt, backoff, lastErr)
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		if err := v.downloadOnce(ctx, rawURL, outPath); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("下载多次失败: %w", lastErr)
+}
+
+// downloadOnce 执行一次下载尝试。
+func (v *WanI2V) downloadOnce(ctx context.Context, rawURL, outPath string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, rawURL, nil)
