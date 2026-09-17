@@ -1,5 +1,7 @@
 # ai-short-drama
 
+[![Go](https://github.com/Wintercom/ai-short-drama/actions/workflows/go.yml/badge.svg)](https://github.com/Wintercom/ai-short-drama/actions/workflows/go.yml)
+
 > 基于多智能体协作的 AI 短剧全流程自动化创作系统 —— 从一句创意到完整视频成片。
 
 通过总控调度层串联**剧本引擎、资产/角色管理、视觉分镜、音频合成、后期合成**五大智能体，实现"文本→视频"的工业化闭环生产，针对性解决 AI 视频创作的三大痛点：**流程割裂、角色一致性差、长篇叙事断裂**。
